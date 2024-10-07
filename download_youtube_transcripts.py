@@ -48,11 +48,12 @@ class Pipeline:
         self.valves = self.Valves()
         print(f"DEBUG: {self.DEBUG}")
         if self.DEBUG: self.set_llm() # Just for local tests
-        print(f"OLLAMA_HOST: {self.valves.OLLAMA_HOST}")
-        print(f"OLLAMA_MODEL_NAME: {self.valves.OLLAMA_MODEL_NAME}")
+
 
     async def on_startup(self):
         print(f"on_startup:{__name__}")
+        print(f"OLLAMA_HOST: {self.valves.OLLAMA_HOST}")
+        print(f"OLLAMA_MODEL_NAME: {self.valves.OLLAMA_MODEL_NAME}")        
         self.set_llm()
         
 
