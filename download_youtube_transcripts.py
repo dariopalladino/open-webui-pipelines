@@ -11,7 +11,7 @@ import os
 import re
 import requests
 from dotenv import load_dotenv
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Union, Generator, Iterator
 from llama_index.llms.ollama import Ollama
 from llama_index.core.schema import Document
@@ -26,9 +26,18 @@ class Pipeline:
     Be mindful that YouTube applies rate limit to the calls you make to its API
     '''
     class Valves(BaseModel):
-        OLLAMA_HOST: str
-        OLLAMA_MODEL_NAME: str
-        YOUTUBE_API_KEY: str
+        OLLAMA_HOST: str = Field(
+            default="http://localhost:11434",
+            description="The OLLAMA server"
+        )
+        OLLAMA_MODEL_NAME: str = Field(
+            default="llama3",
+            description="The OLLAMA model name"
+        )
+        YOUTUBE_API_KEY: str = Field(
+            default="",
+            description="The YouTube API KEY - Currently not used!"
+        )
         
 
     def __init__(self):
@@ -38,9 +47,9 @@ class Pipeline:
         self.llm: Ollama = None
         self.valves = self.Valves(
             **{
-                "OLLAMA_HOST": os.getenv("OLLAMA_HOST", "http://localhost:11434"),
-                "OLLAMA_MODEL_NAME": os.getenv("OLLAMA_MODEL_NAME", "llama3"),
-                "YOUTUBE_API_KEY": os.getenv("YOUTUBE_API_KEY", ""),
+                "OLLAMA_HOST": os.getenv("OLLAMA_HOST", self.valves.OLLAMA_HOST),
+                "OLLAMA_MODEL_NAME": os.getenv("OLLAMA_MODEL_NAME", self.valves.OLLAMA_MODEL_NAME),
+                "YOUTUBE_API_KEY": os.getenv("YOUTUBE_API_KEY", self.valves.YOUTUBE_API_KEY),
             }
         )         
         print(f"DEBUG: {self.DEBUG}")
