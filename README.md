@@ -16,7 +16,7 @@ Current PATTERNS available:
 
 ## Installation
 - From Admin Setting in Open WebUI UI, go to Pipelines
-- Install from Github URL, paste the url to the download_youtube_transcript.py github [link]()
+- Install from Github URL, paste the url to the download_youtube_transcript.py github [link](https://github.com/dariopalladino/open-webui-pipelines/blob/main/download_youtube_transcripts.py)
 - Go to your Chat and select the new model **YouTube Downloader Pipeline**
 - paste the YouTube URL prefixed with following available keywords:
     - extract wisdom (for english)
