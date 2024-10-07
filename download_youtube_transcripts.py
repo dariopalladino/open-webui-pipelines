@@ -45,7 +45,7 @@ class Pipeline:
         self.DEBUG = os.getenv("DEBUG", False)
         self.name = "Youtube Transcript Generation Pipeline"
         self.llm: Ollama = None
-        self.valves = self.Valves()         
+        self.valves = self.Valves()
         print(f"DEBUG: {self.DEBUG}")
         if self.DEBUG: self.set_llm() # Just for local tests
         print(f"OLLAMA_HOST: {self.valves.OLLAMA_HOST}")
