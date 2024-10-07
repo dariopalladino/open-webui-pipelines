@@ -1,0 +1,5 @@
+llama-index
+llama-index-llms-ollama
+llama-index-readers-youtube-transcript
+pydantic
+requests
