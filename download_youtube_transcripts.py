@@ -1,7 +1,7 @@
 """
 title: Youtube Transcript Pipeline
 description: A pipeline fully integrated with Fabric Patterns that returns the full, detailed youtube transcript summarizations in English or Italian of a passed in youtube url.
-Inspired by: a work from Ekatiyar
+Inspired by: a work from Ekatiyar (https://github.com/ekatiyar)
 author: Dario Palladino
 author_url: https://github.com/dariopalladino
 version: 0.1.0
@@ -23,7 +23,7 @@ from llama_index.readers.youtube_transcript.utils import is_youtube_video
 class Pipeline:
     '''
     This pipeline extracts the transcript from a YouTube video and applies a Fabric pattern to it
-    Be mindful that YouTube applies rating to limit the calls you can make to its API within an unspecified time window
+    Be mindful that YouTube applies rate limit to the calls you make to its API
     '''
     class Valves(BaseModel):
         OLLAMA_HOST: str
@@ -37,7 +37,7 @@ class Pipeline:
         self.llm: Ollama = None
         self.valves = self.Valves(
             **{
-                "OLLAMA_HOST": os.getenv("OLLAMA_HOST", "http://localhost:1143"),
+                "OLLAMA_HOST": os.getenv("OLLAMA_HOST", "http://localhost:11434"),
                 "OLLAMA_MODEL_NAME": os.getenv("OLLAMA_MODEL_NAME", "llama3"),
                 "YOUTUBE_API_KEY": os.getenv("YOUTUBE_API_KEY", ""),
             }
