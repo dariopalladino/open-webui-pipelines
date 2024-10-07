@@ -45,6 +45,8 @@ class Pipeline:
         )         
         print(f"DEBUG: {self.DEBUG}")
         if self.DEBUG: self.set_llm() # Just for local tests
+        print(f"OLLAMA_HOST: {self.valves.OLLAMA_HOST}")
+        print(f"OLLAMA_MODEL_NAME: {self.valves.OLLAMA_MODEL_NAME}")
 
     async def on_startup(self):
         print(f"on_startup:{__name__}")
