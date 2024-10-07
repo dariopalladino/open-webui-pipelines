@@ -27,15 +27,15 @@ class Pipeline:
     '''
     class Valves(BaseModel):
         OLLAMA_HOST: str = Field(
-            default="http://localhost:11434",
+            default=os.getenv("OLLAMA_HOST"),
             description="The OLLAMA server"
         )
         OLLAMA_MODEL_NAME: str = Field(
-            default="llama3",
+            default=os.getenv("OLLAMA_MODEL_NAME"),
             description="The OLLAMA model name"
         )
         YOUTUBE_API_KEY: str = Field(
-            default="",
+            default=os.getenv("YOUTUBE_API_KEY"),
             description="The YouTube API KEY - Currently not used!"
         )
         
@@ -45,13 +45,7 @@ class Pipeline:
         self.DEBUG = os.getenv("DEBUG", False)
         self.name = "Youtube Transcript Generation Pipeline"
         self.llm: Ollama = None
-        self.valves = self.Valves(
-            **{
-                "OLLAMA_HOST": os.getenv("OLLAMA_HOST", self.valves.OLLAMA_HOST),
-                "OLLAMA_MODEL_NAME": os.getenv("OLLAMA_MODEL_NAME", self.valves.OLLAMA_MODEL_NAME),
-                "YOUTUBE_API_KEY": os.getenv("YOUTUBE_API_KEY", self.valves.YOUTUBE_API_KEY),
-            }
-        )         
+        self.valves = self.Valves()         
         print(f"DEBUG: {self.DEBUG}")
         if self.DEBUG: self.set_llm() # Just for local tests
         print(f"OLLAMA_HOST: {self.valves.OLLAMA_HOST}")
