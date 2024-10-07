@@ -37,8 +37,8 @@ class Pipeline:
         self.llm: Ollama = None
         self.valves = self.Valves(
             **{
-                "OLLAMA_HOST": os.getenv("OLLAMA_HOST", "http://192.168.16.18:24384"),
-                "OLLAMA_MODEL_NAME": os.getenv("OLLAMA_MODEL_NAME", "llama3.1"),
+                "OLLAMA_HOST": os.getenv("OLLAMA_HOST", "http://localhost:1143"),
+                "OLLAMA_MODEL_NAME": os.getenv("OLLAMA_MODEL_NAME", "llama3"),
                 "YOUTUBE_API_KEY": os.getenv("YOUTUBE_API_KEY", ""),
             }
         )         
