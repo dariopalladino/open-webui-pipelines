@@ -29,11 +29,12 @@ class Pipeline:
         OLLAMA_HOST: str
         OLLAMA_MODEL_NAME: str
         YOUTUBE_API_KEY: str
+        
 
     def __init__(self):
         load_dotenv()
         self.DEBUG = os.getenv("DEBUG", False)
-        self.name = "Youtube Dowloader Pipeline"
+        self.name = "Youtube Transcript Generation Pipeline"
         self.llm: Ollama = None
         self.valves = self.Valves(
             **{
