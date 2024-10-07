@@ -1,4 +1,5 @@
 # Building Open WebUI Pipelines
+A pipeline fully integrated with Fabric Patterns that returns the full, detailed youtube transcript summarizations in English or Italian of a passed in youtube url.
 
 ## Ground knowledge
 Welcome to **Pipelines**, an [Open WebUI](https://github.com/open-webui) initiative. Pipelines bring modular, customizable workflows to any UI client supporting 
@@ -22,6 +23,10 @@ Current PATTERNS available:
     - summarize (for english)
     - estrai saggezza (for italian)
     - riassumi (for italian)
+
+## Side Note:
+- the Youtube YoutubeTranscriptReader from LLAMA-INDEX Readers uses an unofficial YouTube API which applies rate limiting, so be careful in using this capability too much
+- No need to install any python packages, however in the future I may be implementing a new Pipeline server which will include new packages (i.e. langchain_community, etc..) so that more generic RAGs can be created
 
 **More features to come soon**
 

@@ -1,6 +1,6 @@
 """
 title: Youtube Transcript Pipeline
-description: A pipeline that returns the full, detailed youtube transcript in English of a passed in youtube url.
+description: A pipeline fully integrated with Fabric Patterns that returns the full, detailed youtube transcript summarizations in English or Italian of a passed in youtube url.
 Inspired by: a work from Ekatiyar
 author: Dario Palladino
 author_url: https://github.com/dariopalladino
@@ -98,10 +98,13 @@ class Fabric():
     DEBUG = os.getenv("DEBUG", False)
     ALLOWLIST_PATTERN = re.compile(r"^[a-zA-Z0-9\s.,;:!?\-]+$")
     PATTERNS = {
-        'extract wisdom':  "extract_wisdom",
-        'estrai saggezza': "extract_wisdom",
-        'summarize': "summarize",
-        'riassumi': "summarize",
+        "languages": ["en", "it"],
+        "patterns": {
+            'extract wisdom':  "extract_wisdom",
+            'summarize': "summarize",
+            'estrai saggezza': "extract_wisdom",
+            'riassumi': "summarize",
+        }
     }
 
 
@@ -111,6 +114,8 @@ class Fabric():
         self.user_message = None
         self.pattern = None
         self.llm = llm
+        self.language = "en"
+        self.__set_translation_prompt()
 
 
     def get_pattern(self):
@@ -135,11 +140,21 @@ class Fabric():
         """
         Check for the pattern to apply if any and set the pattern attribute
         """
+        found = None
         self.pattern = None
-        for target, fn in self.PATTERNS.items():
+        for lang in self.PATTERNS["languages"]:
+            reg = fr'\b{re.escape(lang.lower())}\b'
+            langfound = re.search(reg, self.user_message)
+            self.language = lang.lower() if langfound else "en"
+
+        if self.DEBUG: print(f"Language: {self.language}")
+
+        for target, fn in self.PATTERNS["patterns"].items():
             reg = fr'\b{re.escape(target.lower())}\b'
             found = re.search(reg, self.user_message)
-            self.pattern = fn if found else self.pattern
+            self.pattern = fn if found else self.pattern                    
+
+        if self.DEBUG: print(f"Pattern: {self.pattern}")
 
 
     def apply_pattern(self, transcript: str) -> str:
@@ -162,9 +177,15 @@ class Fabric():
         self.system_pattern_message.content = system_content
         self.user_pattern_message.content = user_file_content + "\n" + transcript
         messages: List[ChatMessage] = [self.system_pattern_message, self.user_pattern_message]
-        self.__call_ollama(messages)
+        self.__call_ollama(messages)        
+        if self.language and self.language == "it":
+            self.__call_ollama([ChatMessage(role="system", content=self.prompt), ChatMessage(role="user", content=self.get_response_content())])
         return self.get_response_content()
 
+
+    def __set_translation_prompt(self):
+        self.prompt = """Translate the following text to Italian
+"""
 
     # Pull the URL content's from the GitHub repo
     def __fetch_content_from_url(self, url):
