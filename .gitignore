@@ -2,3 +2,4 @@
 .venv312/
 __*.py
 __pycache__/
+notes.txt
