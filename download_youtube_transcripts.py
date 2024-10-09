@@ -124,6 +124,8 @@ class Fabric():
         self.language = "en"
         self.__set_translation_prompt()
 
+    def get_patterns(self) -> dict:
+        return self.PATTERNS['patterns']
 
     def get_pattern(self):
         if self.DEBUG: print(f'Fabric Pattern: {self.pattern}')   
@@ -251,6 +253,22 @@ class Fabric():
 class Tools():
     def __init__(self):
         self.citation = True
+   
+    def __extract_url(self, text):
+        """
+        Extracts URL(s) from the given text.
+        
+        Args:
+            text (str): The input string containing one or more URLs.
+        
+        Returns:
+            list: A list of extracted URLs.
+        """
+        url_pattern = r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
+        
+        urls = re.findall(url_pattern, text)
+        
+        return urls[0] if len(urls) > 0 else urls
 
 
 class YouTubeTool(Tools):
@@ -306,20 +324,3 @@ class YouTubeTool(Tools):
         except Exception as e:
             error_message = f"Error: {str(e)}"
             return error_message
-   
-
-    def __extract_url(self, text):
-        """
-        Extracts URL(s) from the given text.
-        
-        Args:
-            text (str): The input string containing one or more URLs.
-        
-        Returns:
-            list: A list of extracted URLs.
-        """
-        url_pattern = r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
-        
-        urls = re.findall(url_pattern, text)
-        
-        return urls[0] if len(urls) > 0 else urls
