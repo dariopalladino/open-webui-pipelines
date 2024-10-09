@@ -27,15 +27,15 @@ class Pipeline:
     '''
     class Valves(BaseModel):
         OLLAMA_HOST: str = Field(
-            default=os.getenv("OLLAMA_HOST"),
+            default=os.getenv("OLLAMA_HOST", "http://localhost:11434"),
             description="The OLLAMA server"
         )
         OLLAMA_MODEL_NAME: str = Field(
-            default=os.getenv("OLLAMA_MODEL_NAME"),
+            default=os.getenv("OLLAMA_MODEL_NAME", "llama3"),
             description="The OLLAMA model name"
         )
         YOUTUBE_API_KEY: str = Field(
-            default=os.getenv("YOUTUBE_API_KEY"),
+            default=os.getenv("YOUTUBE_API_KEY", ""),
             description="The YouTube API KEY - Currently not used!"
         )
         
