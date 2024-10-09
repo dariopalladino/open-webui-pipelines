@@ -43,7 +43,7 @@ class Pipeline:
     def __init__(self):
         load_dotenv()
         self.DEBUG = os.getenv("DEBUG", False)
-        self.name = "Youtube Transcript Generation Pipeline"
+        self.name = "Youtube Transcript Generator"
         self.llm: Ollama = None
         self.valves = self.Valves()
         print(f"DEBUG: {self.DEBUG}")

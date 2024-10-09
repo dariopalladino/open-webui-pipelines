@@ -66,11 +66,11 @@ class Pipeline:
 	'''
 	class Valves(BaseModel):
 		OLLAMA_HOST: str = Field(
-			default="http://localhost:11434",
+			default=os.getenv("OLLAMA_HOST"),
 			description="The OLLAMA server"
 		)
 		OLLAMA_MODEL_NAME: str = Field(
-			default="llama3",
+			default=os.getenv("OLLAMA_MODEL_NAME"),
 			description="The OLLAMA model name"
 		)
 	
@@ -80,12 +80,7 @@ class Pipeline:
 		self.DEBUG = os.getenv("DEBUG", False)
 		self.name = "BBC News Daily Digest Generator"
 		self.llm: Ollama = None
-		self.valves = self.Valves(
-			**{
-				"OLLAMA_HOST": os.getenv("OLLAMA_HOST"),
-				"OLLAMA_MODEL_NAME": os.getenv("OLLAMA_MODEL_NAME")
-			}
-		)
+		self.valves = self.Valves()
 		print(f"DEBUG: {self.DEBUG}")
 		if self.DEBUG: self.set_llm() # Just for local tests
 
