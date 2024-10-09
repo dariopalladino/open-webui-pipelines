@@ -58,11 +58,13 @@ class Pipeline:
 	'''
 	class Valves(BaseModel):
 		OLLAMA_HOST: str = Field(
-			default=os.getenv("OLLAMA_HOST", "http://localhost:11434"),
+			# default=os.getenv("OLLAMA_HOST", "http://localhost:11434"),
+			default="",
 			description="The OLLAMA server"
 		)
 		OLLAMA_MODEL_NAME: str = Field(
-			default=os.getenv("OLLAMA_MODEL_NAME", "llama3"),
+			# default=os.getenv("OLLAMA_MODEL_NAME", "llama3"),
+			default="",
 			description="The OLLAMA model name"
 		)
 	
