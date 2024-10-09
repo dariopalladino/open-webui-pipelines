@@ -50,14 +50,6 @@ class ArticleType(Enum):
 	def get_name(self) -> str: return self.name.replace("_", " ").title()
 	def get_uri(self) -> str: return f"https://feeds.bbci.co.uk/news/{self.value}/rss.xml" if self.name != "top_stories" else "https://feeds.bbci.co.uk/news/rss.xml"
 
-# Regex to match a BBC News article URI.
-# Details:
-#  - Must use http or https.
-#  - Must be a bbc.com or bbc.co.uk domain.
-#  - Must be a news article or video.
-#  - Must have a valid ID (alphanumeric characters).
-URI_REGEX = re.compile("^(https?:\/\/)(www\.)?bbc\.(com|co\.uk)\/news\/(articles|videos)\/\w+$")
-
 
 class Pipeline:
 	'''
@@ -313,6 +305,14 @@ class Tools():
 
 
 class BBCDailyDigest(Tools):
+	# Regex to match a BBC News article URI.
+	# Details:
+	#  - Must use http or https.
+	#  - Must be a bbc.com or bbc.co.uk domain.
+	#  - Must be a news article or video.
+	#  - Must have a valid ID (alphanumeric characters).
+	URI_REGEX = re.compile("^(https?:\/\/)(www\.)?bbc\.(com|co\.uk)\/news\/(articles|videos)\/\w+$")
+
 	def __init__(self, fabric: Fabric = None):        
 		super().__init__()
 		self.fabric = fabric
@@ -363,7 +363,7 @@ class BBCDailyDigest(Tools):
 		
 		url = self.extract_url(user_message)
 
-		if not re.match(URI_REGEX, url):
+		if not re.match(self.URI_REGEX, url):
 			return "Error: URI must be a BBC News article."
 
 		content = ""
