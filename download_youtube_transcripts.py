@@ -12,7 +12,7 @@ import re
 import requests
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
-from typing import List, Union, Generator, Iterator
+from typing import List, Union, Generator, Iterator, Any
 from llama_index.llms.ollama import Ollama
 from llama_index.core.schema import Document
 from llama_index.core.llms import ChatMessage, ChatResponse
@@ -27,16 +27,12 @@ class Pipeline:
     '''
     class Valves(BaseModel):
         OLLAMA_HOST: str = Field(
-            default="",
+            default=os.getenv("OLLAMA_HOST", "http://localhost:11434"),
             description="The OLLAMA server"
         )
         OLLAMA_MODEL_NAME: str = Field(
-            default="",
+            default=os.getenv("OLLAMA_MODEL_NAME", "llama3"),
             description="The OLLAMA model name"
-        )
-        YOUTUBE_API_KEY: str = Field(
-            default="",
-            description="The YouTube API KEY - Currently not used!"
         )
         
 
@@ -254,7 +250,7 @@ class Tools():
     def __init__(self):
         self.citation = True
    
-    def __extract_url(self, text):
+    def extract_url(self, text):
         """
         Extracts URL(s) from the given text.
         
@@ -275,7 +271,7 @@ class YouTubeTool(Tools):
     def __init__(self, fabric: Fabric = None):        
         super().__init__()
         self.fabric = fabric
-        self.url = self.__extract_url(self.fabric.get_user_message())
+        self.url = super().extract_url(self.fabric.get_user_message())
         self.DEBUG = os.getenv("DEBUG", False)
 
 
