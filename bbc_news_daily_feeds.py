@@ -18,38 +18,15 @@ from enum import Enum
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 import xml.etree.ElementTree as ElementTree
-from typing import Awaitable, Callable, Union, Generator, List, Iterator, Optional
+from typing import Awaitable, Callable, Union, Generator, List, Iterator, Optional, Any
 from pydantic import BaseModel, Field
+from llama_index.core import ChatPromptTemplate, PromptTemplate
 from llama_index.llms.ollama import Ollama
 from llama_index.core.schema import Document
 from llama_index.core.llms import ChatMessage, ChatResponse
 
 
-class ArticleType(Enum):
-	top_stories = "top_stories"
-	world = "world"
-	uk = "uk"
-	business = "business"
-	politics = "politics"
-	health = "health"
-	education = "education"
-	science_and_environment = "science_and_environment"
-	technology = "technology"
-	entertainment_and_arts = "entertainment_and_arts"
-	england = "england"
-	northern_ireland = "northern_ireland"
-	scotland = "scotland"
-	wales = "wales"
-	africa = "world/africa"
-	asia = "world/asia"
-	australia = "world/australia"
-	europe = "world/europe"
-	latin_america = "world/latin_america"
-	middle_east = "world/middle_east"
-	us_and_canada = "world/us_and_canada"
-	def get_name(self) -> str: return self.name.replace("_", " ").title()
-	def get_uri(self) -> str: return f"https://feeds.bbci.co.uk/news/{self.value}/rss.xml" if self.name != "top_stories" else "https://feeds.bbci.co.uk/news/rss.xml"
-
+# feeds.bbci.co.uk
 
 class Pipeline:
 	'''
@@ -58,11 +35,15 @@ class Pipeline:
 	'''
 	class Valves(BaseModel):
 		OLLAMA_HOST: str = Field(
-			default=os.getenv("OLLAMA_HOST"),
+			default=os.getenv("OLLAMA_HOST", "http://localhost:11434"),
 			description="The OLLAMA server"
 		)
 		OLLAMA_MODEL_NAME: str = Field(
-			default=os.getenv("OLLAMA_MODEL_NAME"),
+			default=os.getenv("OLLAMA_MODEL_NAME", "llama3.1"),
+			description="The OLLAMA model name"
+		)
+		BBC_FEEDS_DOMAIN: str = Field(
+			default=os.getenv("BBC_FEEDS_DOMAIN", "feeds.bbci.co.uk"),
 			description="The OLLAMA model name"
 		)
 	
@@ -70,7 +51,7 @@ class Pipeline:
 	def __init__(self):
 		load_dotenv()
 		self.DEBUG = os.getenv("DEBUG", False)
-		self.name = "BBC News Daily Digest Generator"
+		self.name = "BBC News Daily Digest"
 		self.llm: Ollama = None
 		self.valves = self.Valves()
 		print(f"DEBUG: {self.DEBUG}")
@@ -79,10 +60,13 @@ class Pipeline:
 
 	async def on_startup(self):
 		print(f"on_startup:{__name__}")
-		print(f"OLLAMA_HOST: {self.valves.OLLAMA_HOST}")
-		print(f"OLLAMA_MODEL_NAME: {self.valves.OLLAMA_MODEL_NAME}")        
 		self.set_llm()
 		
+
+	async def on_valves_updated(self):
+		print(f"on_valves_updated:{__name__}")
+		self.set_llm()
+
 
 	async def on_shutdown(self):
 		print(f"on_shutdown:{__name__}")
@@ -112,19 +96,20 @@ class Pipeline:
 		if self.DEBUG: print(f"UserMessage: {user_message}")
 		if self.DEBUG: print(f"OLLAMA_HOST: {self.valves.OLLAMA_HOST}")
 		if self.DEBUG: print(f"OLLAMA_MODEL_NAME: {self.valves.OLLAMA_MODEL_NAME}")
+
 		self.fabric = Fabric(self.llm)
 		self.fabric.set_user_message(user_message)
 		self.fabric.find_pattern()
 
-		if body.get('temperature'):			
-			tools = BBCDailyDigest(self.fabric)
+		if body.get('title', False):
+			return self.__create_title()
+		else:
+			tools = BBCDailyDigest(fabric=self.fabric, bbc_domain=self.valves.BBC_FEEDS_DOMAIN)
 			if self.fabric.get_pattern() in self.fabric.get_patterns():
 				context = tools.get_bbc_news_content(user_message=user_message)
 			else:
 				context = tools.get_bbc_news_feed("top_stories")
 			return context if context else "No information found"
-		else:
-			return self.__create_title()
 
 
 	def __create_title(self):
@@ -218,11 +203,17 @@ class Fabric():
 		self.system_pattern_message.content = system_content
 		self.user_pattern_message.content = user_file_content + "\n" + transcript
 		messages: List[ChatMessage] = [self.system_pattern_message, self.user_pattern_message]
-		self.__call_ollama(messages)        
+		self.__call_ollama(messages)
 		if self.language and self.language == "it":
 			self.__call_ollama([ChatMessage(role="system", content=self.prompt), ChatMessage(role="user", content=self.get_response_content())])
 		return self.get_response_content()
 
+
+	def apply_extra_pattern(self, prompt_template: PromptTemplate, message):
+		message: ChatMessage = prompt_template.format_messages(input=message, llm=self.llm)
+		self.__call_ollama(messages=message)
+		return self.get_response_content()
+		
 
 	def __set_translation_prompt(self):
 		self.prompt = """Translate the following text to Italian
@@ -286,7 +277,7 @@ class Tools():
     def __init__(self):
         self.citation = True
    
-    def extract_url(self, text):
+    def _extract_url(self, text):
         """
         Extracts URL(s) from the given text.
         
@@ -313,9 +304,44 @@ class BBCDailyDigest(Tools):
 	#  - Must have a valid ID (alphanumeric characters).
 	URI_REGEX = re.compile("^(https?:\/\/)(www\.)?bbc\.(com|co\.uk)\/news\/(articles|videos)\/\w+$")
 
-	def __init__(self, fabric: Fabric = None):        
+	class ArticleType(Enum):
+		top_stories = "top_stories"
+		world = "world"
+		uk = "uk"
+		business = "business"
+		politics = "politics"
+		health = "health"
+		education = "education"
+		science_and_environment = "science_and_environment"
+		technology = "technology"
+		entertainment_and_arts = "entertainment_and_arts"
+		england = "england"
+		northern_ireland = "northern_ireland"
+		scotland = "scotland"
+		wales = "wales"
+		africa = "world/africa"
+		asia = "world/asia"
+		australia = "world/australia"
+		europe = "world/europe"
+		latin_america = "world/latin_america"
+		middle_east = "world/middle_east"
+		us_and_canada = "world/us_and_canada"
+		def get_name(self) -> str: return self.name.replace("_", " ").title()
+		def get_uri(self, domain) -> str: return f"https://{domain}/news/{self.value}/rss.xml" if self.name != "top_stories" else f"https://{domain}/news/rss.xml"
+
+	def __init__(self, fabric: Fabric = None, bbc_domain: str = "feed.bbc.com" ):
 		super().__init__()
 		self.fabric = fabric
+		self.bbc_domain = bbc_domain
+		self.prompt: PromptTemplate = PromptTemplate(template="""You are a JSON format expert. Given an input array formatted with JSON, order the results by the "published" field descending to return a more readable list from the given input. Return only the most recent items, max 25, based on the "published" field, and don't add any of your comments.
+Pay attention to the following fields available in each single row of the array: "title", "description", "link", "published" and provide a response using the following format:
+Title: value of the "title" field
+Description: value of the "description" field
+Link: value of the "link" field
+Published at: value of the "published" field
+
+Input json array: {input}
+""")
 		self.DEBUG = os.getenv("DEBUG", False)
         
 	def get_bbc_news_feed(
@@ -327,12 +353,12 @@ class BBCDailyDigest(Tools):
 		:param type: The type of news to get. It can be any of the ArticleType enum values (world, uk, business, politics, health, education, science_and_environment, technology, entertainment_and_arts, england, northern_ireland, scotland, wales, world/africa, world/asia, world/australia, world/europe, world/latin_america, world/middle_east, world/us_and_canada).
 		:return: A list of news items or an error message.
 		"""
-		type = ArticleType(type) # Enforce the type (it seems to get dropped by openwebui...)
+		type = self.ArticleType(type) # Enforce the type (it seems to get dropped by openwebui...)
 		output = []
 		try:
-			response = requests.get(type.get_uri())
+			response = requests.get(type.get_uri(self.bbc_domain))
 			if not response.ok: 
-				return f"Error: '{type}' ({type.get_uri()}) not found ({response.status_code})"
+				return f"Error: '{type}' ({type.get_uri(self.bbc_domain)}) not found ({response.status_code})"
 			
 			root = ElementTree.fromstring(response.content)
 			for item in root.iter("item"): 
@@ -345,8 +371,10 @@ class BBCDailyDigest(Tools):
 			
 		except Exception as e:
 			return f"Error: {e}"
+		
+		return self.fabric.apply_extra_pattern(self.prompt, json.dumps(output))
 
-		return json.dumps(output)
+		# return json.dumps(output)
 		
 
 	def get_bbc_news_content(
@@ -361,7 +389,7 @@ class BBCDailyDigest(Tools):
 		if user_message == "":
 			return "Error: No User Message provided"
 		
-		url = self.extract_url(user_message)
+		url = super()._extract_url(user_message)
 
 		if not re.match(self.URI_REGEX, url):
 			return "Error: URI must be a BBC News article."
@@ -385,6 +413,3 @@ class BBCDailyDigest(Tools):
 		
 		return content
 	
-
-	def extract_url(self, text):
-		return super().extract_url(text)

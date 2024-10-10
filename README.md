@@ -24,7 +24,7 @@ summarize this **URL**
 
 ## Installation
 - You need to have a Pipeline server up and running **[Open WebUI Pipelines](https://github.com/open-webui/pipelines/tree/main)**
-- The BBC Daily Digest Pipeline requires BeautifulSoap to work. Since the original Pipeline server does not include this package, you can use the enhanced version from **[here]()**
+- The BBC Daily Digest Pipeline requires BeautifulSoap to work, thus when starting up the server you need to pass the requirements.txt folder path so that it can be installed automatically.
 - Once the Pipelines Server is up and running:
   - From Admin Setting in Open WebUI UI, go to Pipelines
   - Install from Github URL, paste the url to the download_youtube_transcript.py github [link](https://github.com/dariopalladino/open-webui-pipelines/blob/main/download_youtube_transcripts.py)
@@ -36,6 +36,8 @@ summarize this **URL**
       - estrai saggezza **URL**
       - riassumi **URL**
   or 
+  - From Admin Setting in Open WebUI UI, go to Pipelines
+  - Install from Github URL, paste the url to the download_youtube_transcript.py github [link](https://github.com/dariopalladino/open-webui-pipelines/blob/main/
   - Go to your Chat and select the new model **BBC News Daily Digest Pipeline**
   - Ask: "Give me a daily digest" and the output will be a list of articles with description and link
   - Grab any link and ask: 
