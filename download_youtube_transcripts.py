@@ -1,5 +1,5 @@
 """
-title: Youtube Transcript Pipeline
+title: Youtube Transcript Generator Pipeline
 description: A pipeline fully integrated with Fabric Patterns that returns the full, detailed youtube transcript summarizations in English or Italian of a passed in youtube url.
 Inspired by: a work from Ekatiyar (https://github.com/ekatiyar)
 author: Dario Palladino
@@ -21,17 +21,16 @@ from llama_index.readers.youtube_transcript.utils import is_youtube_video
 
 
 class Pipeline:
-    '''
-    This pipeline extracts the transcript from a YouTube video and applies a Fabric pattern to it
-    Be mindful that YouTube applies rate limit to the calls you make to its API
-    '''
+
     class Valves(BaseModel):
+        # OLLAMA_HOST: str
+        # OLLAMA_MODEL_NAME: str
         OLLAMA_HOST: str = Field(
-            default=os.getenv("OLLAMA_HOST"),
+            default="",
             description="The OLLAMA server"
         )
         OLLAMA_MODEL_NAME: str = Field(
-            default=os.getenv("OLLAMA_MODEL_NAME"),
+            default="",
             description="The OLLAMA model name"
         )
 
@@ -41,17 +40,27 @@ class Pipeline:
         self.DEBUG = os.getenv("DEBUG", False)
         self.name = "Youtube Transcript Generator"
         self.llm: Ollama = None
-        self.valves = self.Valves()
+        self.valves = self.Valves(
+            **{
+                "OLLAMA_HOST": os.getenv('OLLAMA_HOST', 'http://localhost:11434/'),
+                "OLLAMA_MODEL_NAME": os.getenv('OLLAMA_MODEL_NAME', 'llama3.1')
+            }
+        )
         print(f"DEBUG: {self.DEBUG}")
+        if self.DEBUG: print(f"OLLAMA HOST: {self.valves.OLLAMA_HOST}")
+        if self.DEBUG: print(f"OLLAMA MODEL NAME: {self.valves.OLLAMA_MODEL_NAME}")
         if self.DEBUG: self.set_llm() # Just for local tests
 
 
     async def on_startup(self):
-        print(f"on_startup:{__name__}")
-        print(f"OLLAMA_HOST: {self.valves.OLLAMA_HOST}")
-        print(f"OLLAMA_MODEL_NAME: {self.valves.OLLAMA_MODEL_NAME}")        
+        print(f"on_startup:{__name__}") 
         self.set_llm()
-        
+
+
+    async def on_valves_updated(self):
+        print(f"on_valves_updated:{__name__}")
+        self.set_llm()
+
 
     async def on_shutdown(self):
         print(f"on_shutdown:{__name__}")
@@ -59,6 +68,7 @@ class Pipeline:
 
 
     def set_llm(self):
+        print(f"set_llm")
         self.llm = Ollama(
             model=self.valves.OLLAMA_MODEL_NAME, 
             base_url=self.valves.OLLAMA_HOST, 
@@ -84,16 +94,19 @@ class Pipeline:
         self.fabric.set_user_message(user_message)
         self.fabric.find_pattern()
 
-        if body.get('temperature'):
+        if body.get('title', False):
+            return self.__create_title()
+        else:
             tools = YouTubeTool(self.fabric)
             context = tools.get_youtube_transcript()
             return context if context else "No information found"
-        else:
-            return self.__create_title()
 
 
     def __create_title(self):
+        '''TODO: get the Video title and call LLM to make it a sensible title for the chat
+        '''
         return 'Youtube Transcript'
+
 
 
 class Fabric():
@@ -246,11 +259,12 @@ class Fabric():
             self.response = f"Error with the Ollama call in Fabric pattern workflow: {str(e)}"
 
 
-class Tools():
-    def __init__(self):
+class Tools:
+    def __init__(self) -> None:
+        # self.pipeline = pipeline
         self.citation = True
-   
-    def extract_url(self, text):
+
+    def _extract_url(self, text):
         """
         Extracts URL(s) from the given text.
         
@@ -265,13 +279,13 @@ class Tools():
         urls = re.findall(url_pattern, text)
         
         return urls[0] if len(urls) > 0 else urls
-
+        
 
 class YouTubeTool(Tools):
     def __init__(self, fabric: Fabric = None):        
         super().__init__()
         self.fabric = fabric
-        self.url = super().extract_url(self.fabric.get_user_message())
+        self.url = super()._extract_url(self.fabric.get_user_message())
         self.DEBUG = os.getenv("DEBUG", False)
 
 
@@ -294,8 +308,22 @@ class YouTubeTool(Tools):
             if type(self.url) == str and is_youtube_video(self.url):
                 loader = YoutubeTranscriptReader()
                 print(f'Youtube Loader: {loader}')
-                if self.DEBUG and os.getenv("TEST_TEXT"): 
-                    transcript = [Document(id_='-IAwW3pUEew', embedding=None, metadata={'video_id': '-IAwW3pUEew'}, excluded_embed_metadata_keys=[], excluded_llm_metadata_keys=[], relationships={}, text=os.getenv("TEST_TEXT"), mimetype='text/plain', start_char_idx=None, end_char_idx=None, text_template='{metadata_str}\n\n{content}', metadata_template='{key}: {value}', metadata_seperator='\n')]
+                if self.DEBUG and os.getenv("TEST_TEXT"):  # Avoid calling YT API just for local testing
+                    transcript = [Document(id_='-IAwW3pUEew', 
+                                           embedding=None, 
+                                           metadata={'video_id': '-IAwW3pUEew'}, 
+                                           excluded_embed_metadata_keys=[], 
+                                           excluded_llm_metadata_keys=[], 
+                                           relationships={}, 
+                                           text=os.getenv("TEST_TEXT"), 
+                                           mimetype='text/plain', 
+                                           start_char_idx=None, 
+                                           end_char_idx=None, 
+                                           text_template='{metadata_str}\n\n{content}', 
+                                           metadata_template='{key}: {value}', 
+                                           metadata_seperator='\n'
+                                           )
+                                ]
                 else:
                     transcript = loader.load_data(
                         ytlinks=[self.url]
@@ -320,3 +348,4 @@ class YouTubeTool(Tools):
         except Exception as e:
             error_message = f"Error: {str(e)}"
             return error_message
+
