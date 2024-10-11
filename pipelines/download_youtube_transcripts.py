@@ -10,15 +10,18 @@ license: MIT
 import os
 import re
 import requests
-from dotenv import load_dotenv
+from pathlib import Path
+from dotenv import load_dotenv, find_dotenv
 from pydantic import BaseModel, Field
 from typing import List, Union, Generator, Iterator, Any
 from llama_index.llms.ollama import Ollama
 from llama_index.core.schema import Document
 from llama_index.core.llms import ChatMessage, ChatResponse
+from llama_index.core import ChatPromptTemplate, PromptTemplate
 from llama_index.readers.youtube_transcript import YoutubeTranscriptReader
 from llama_index.readers.youtube_transcript.utils import is_youtube_video
 
+BASE_DIR = Path(__file__).parent
 
 class Pipeline:
 
@@ -36,7 +39,7 @@ class Pipeline:
 
 
     def __init__(self):
-        load_dotenv()
+        load_dotenv(find_dotenv(str(BASE_DIR / ".env")))
         self.DEBUG = os.getenv("DEBUG", False)
         self.name = "Youtube Transcript Generator"
         self.llm: Ollama = None
@@ -87,7 +90,6 @@ class Pipeline:
     ) -> Union[str, Generator, Iterator]:
         if self.DEBUG: print(f"pipe: {__name__}")
         if self.DEBUG: print(f"Body: {body}")
-        if self.DEBUG: print(f"Temperature: {body.get('temperature', False)}")
         if self.DEBUG: print(f"UserMessage: {user_message}")
         
         self.fabric = Fabric(self.llm)
@@ -114,12 +116,17 @@ class Fabric():
     DEBUG = os.getenv("DEBUG", False)
     ALLOWLIST_PATTERN = re.compile(r"^[a-zA-Z0-9\s.,;:!?\-]+$")
     PATTERNS = {
-        "languages": ["en", "it"],
+        "languages": {
+            "en": "English", 
+            "it": "Italian"
+        },
         "patterns": {
             'extract wisdom':  "extract_wisdom",
             'summarize': "summarize",
+            "analyze_presentation": "analyze_presentation",
             'estrai saggezza': "extract_wisdom",
             'riassumi': "summarize",
+            "analizza": "analyze_presentation"
         }
     }
 
@@ -130,15 +137,19 @@ class Fabric():
         self.user_message = None
         self.pattern = None
         self.llm = llm
-        self.language = "en"
-        self.__set_translation_prompt()
+        self.language = None
 
     def get_patterns(self) -> dict:
         return self.PATTERNS['patterns']
 
+
     def get_pattern(self):
         if self.DEBUG: print(f'Fabric Pattern: {self.pattern}')   
         return self.pattern if self.pattern else None
+
+
+    def get_available_languages(self):
+        return self.PATTERNS['languages']
 
 
     def get_response_content(self):
@@ -160,19 +171,19 @@ class Fabric():
         """
         found = None
         self.pattern = None
-        for lang in self.PATTERNS["languages"]:
+        for lang, text in self.get_available_languages().items():
             reg = fr'\b{re.escape(lang.lower())}\b'
-            langfound = re.search(reg, self.user_message)
-            self.language = lang.lower() if langfound else "en"
+            langfound = re.search(reg, self.user_message.lower())
+            self.language = text if langfound else "English"
 
-        if self.DEBUG: print(f"Language: {self.language}")
+        print(f"Language: {self.language}")
 
         for target, fn in self.PATTERNS["patterns"].items():
             reg = fr'\b{re.escape(target.lower())}\b'
-            found = re.search(reg, self.user_message)
+            found = re.search(reg, self.user_message.lower())
             self.pattern = fn if found else self.pattern                    
 
-        if self.DEBUG: print(f"Pattern: {self.pattern}")
+        print(f"Pattern: {self.pattern}")
 
 
     def apply_pattern(self, transcript: str) -> str:
@@ -193,17 +204,30 @@ class Fabric():
         user_file_content = self.__fetch_content_from_url(user_url)
 
         self.system_pattern_message.content = system_content
-        self.user_pattern_message.content = user_file_content + "\n" + transcript
+        self.user_pattern_message.content = user_file_content + "\n" + transcript if user_file_content else transcript
         messages: List[ChatMessage] = [self.system_pattern_message, self.user_pattern_message]
         self.__call_ollama(messages)        
-        if self.language and self.language == "it":
-            self.__call_ollama([ChatMessage(role="system", content=self.prompt), ChatMessage(role="user", content=self.get_response_content())])
+        self.translate()
         return self.get_response_content()
 
 
-    def __set_translation_prompt(self):
-        self.prompt = """Translate the following text to Italian
+    def apply_extra_pattern(self, prompt_template: PromptTemplate, message):
+        message: ChatMessage = prompt_template.format_messages(input=message, llm=self.llm)
+        self.__call_ollama(messages=message)
+        self.translate()
+        return self.get_response_content()
+
+
+    def translate(self) -> None:
+        if self.language != "English":
+            self.__set_translation_prompt(self.language)
+            self.__call_ollama([ChatMessage(role="system", content=self.translation_prompt), ChatMessage(role="user", content=self.get_response_content())])			
+
+
+    def __set_translation_prompt(self, language: str):
+        self.translation_prompt = f"""Translate the following text to {self.language}
 """
+
 
     # Pull the URL content's from the GitHub repo
     def __fetch_content_from_url(self, url):
@@ -307,7 +331,6 @@ class YouTubeTool(Tools):
 
             if type(self.url) == str and is_youtube_video(self.url):
                 loader = YoutubeTranscriptReader()
-                print(f'Youtube Loader: {loader}')
                 if self.DEBUG and os.getenv("TEST_TEXT"):  # Avoid calling YT API just for local testing
                     transcript = [Document(id_='-IAwW3pUEew', 
                                            embedding=None, 
@@ -328,7 +351,7 @@ class YouTubeTool(Tools):
                     transcript = loader.load_data(
                         ytlinks=[self.url]
                     )
-                print(f'Youtube Transcript: {transcript}')
+                if self.DEBUG: print(f'Youtube Transcript: {transcript}')
                 
                 if len(transcript) == 0:
                     error_message = f"Error: Failed to find transcript for {self.url}"
@@ -341,7 +364,7 @@ class YouTubeTool(Tools):
             transcript = " ".join([document.text.replace('\n', ' ') for document in transcript])
             
             if self.fabric.get_pattern():
-                print(f"Inside the PATTERN: {self.fabric.get_pattern()}")                
+                if self.DEBUG: print(f"Inside the PATTERN: {self.fabric.get_pattern()}")                
                 return self.fabric.apply_pattern(transcript)
             return transcript
 

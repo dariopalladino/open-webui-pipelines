@@ -15,8 +15,9 @@ import re
 import json
 import requests
 from enum import Enum
+from pathlib import Path
 from bs4 import BeautifulSoup
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv
 import xml.etree.ElementTree as ElementTree
 from typing import Awaitable, Callable, Union, Generator, List, Iterator, Optional, Any
 from pydantic import BaseModel, Field
@@ -26,7 +27,7 @@ from llama_index.core.schema import Document
 from llama_index.core.llms import ChatMessage, ChatResponse
 
 
-# feeds.bbci.co.uk
+BASE_DIR = Path(__file__).parent
 
 class Pipeline:
 	'''
@@ -49,7 +50,7 @@ class Pipeline:
 	
 
 	def __init__(self):
-		load_dotenv()
+		load_dotenv(find_dotenv(str(BASE_DIR / ".env")))
 		self.DEBUG = os.getenv("DEBUG", False)
 		self.name = "BBC News Daily Digest"
 		self.llm: Ollama = None
@@ -121,7 +122,10 @@ class Fabric():
 	DEBUG = os.getenv("DEBUG", False)
 	ALLOWLIST_PATTERN = re.compile(r"^[a-zA-Z0-9\s.,;:!?\-]+$")
 	PATTERNS = {
-		"languages": ["en", "it"],
+        "languages": {
+            "en": "English", 
+            "it": "Italian"
+        },
 		"patterns": {
 			'summarize': "summarize",
 			'riassumi': "summarize",
@@ -135,9 +139,8 @@ class Fabric():
 		self.user_message = None
 		self.pattern = None
 		self.llm = llm
-		self.language = "en"
-		self.__set_translation_prompt()
-
+		self.language = None
+		
 
 	def get_patterns(self) -> dict:
 		return self.PATTERNS['patterns']
@@ -146,6 +149,10 @@ class Fabric():
 	def get_pattern(self):
 		if self.DEBUG: print(f'Fabric Pattern: {self.pattern}')   
 		return self.pattern if self.pattern else None
+
+
+	def get_available_languages(self):
+		return self.PATTERNS['languages']
 
 
 	def get_response_content(self):
@@ -167,16 +174,16 @@ class Fabric():
 		"""
 		found = None
 		self.pattern = None
-		for lang in self.PATTERNS["languages"]:
+		for lang, text in self.get_available_languages().items():
 			reg = fr'\b{re.escape(lang.lower())}\b'
-			langfound = re.search(reg, self.user_message)
-			self.language = lang.lower() if langfound else "en"
+			langfound = re.search(reg, self.user_message.lower())
+			self.language = text if langfound else "English"
 
 		if self.DEBUG: print(f"Language: {self.language}")
 
 		for target, fn in self.PATTERNS["patterns"].items():
 			reg = fr'\b{re.escape(target.lower())}\b'
-			found = re.search(reg, self.user_message)
+			found = re.search(reg, self.user_message.lower())
 			self.pattern = fn if found else self.pattern                    
 
 		if self.DEBUG: print(f"Pattern: {self.pattern}")
@@ -201,22 +208,28 @@ class Fabric():
 		user_file_content = self.__fetch_content_from_url(user_url)
 
 		self.system_pattern_message.content = system_content
-		self.user_pattern_message.content = user_file_content + "\n" + transcript
+		self.user_pattern_message.content = user_file_content + "\n" + transcript if user_file_content else transcript
 		messages: List[ChatMessage] = [self.system_pattern_message, self.user_pattern_message]
 		self.__call_ollama(messages)
-		if self.language and self.language == "it":
-			self.__call_ollama([ChatMessage(role="system", content=self.prompt), ChatMessage(role="user", content=self.get_response_content())])
+		self.translate()
 		return self.get_response_content()
 
 
 	def apply_extra_pattern(self, prompt_template: PromptTemplate, message):
 		message: ChatMessage = prompt_template.format_messages(input=message, llm=self.llm)
 		self.__call_ollama(messages=message)
+		self.translate()
 		return self.get_response_content()
-		
 
-	def __set_translation_prompt(self):
-		self.prompt = """Translate the following text to Italian
+
+	def translate(self) -> None:
+		if self.language != "English":
+			self.__set_translation_prompt(self.language)
+			self.__call_ollama([ChatMessage(role="system", content=self.translation_prompt), ChatMessage(role="user", content=self.get_response_content())])			
+				
+
+	def __set_translation_prompt(self, language: str):
+		self.translation_prompt = f"""Translate the following text to {self.language}
 	"""
 
 	# Pull the URL content's from the GitHub repo
